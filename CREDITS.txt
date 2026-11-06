@@ -1,0 +1,23 @@
+FIRST PERSON BOXER
+Created by Richard Liu.
+
+Third-party assets and code used in this build
+-----------------------------------------------
+3D characters: Quaternius, "Universal Base Characters" (Superhero Male body, eyes, eyebrows, hair) - CC0 (public domain).
+Animations: Quaternius, "Universal Animation Library" (UAL1, UAL2) - CC0 (public domain).
+Gloves, ring, arena, crowd impostors: made procedurally in the game's own code.
+
+Sound recordings (all CC0, packed into assets/impacts.wav):
+  Punches: Vrymaa, "Hits & Fight - Punching" (freesound 753427)
+  Face/body impacts: Kinoton, "Face Punch, Body Impact" (freesound 503277)
+  Body thuds: Kinoton, "Power Kick, Body Impact" (freesound 586841)
+  Glove leather: Vrymaa, "Leather - Fraternal pats" (freesound 734550); Kinoton, "Grab Leather" (freesound 719963)
+  Arm whooshes: Nox_Sound, "Foley_Whoosh_Clothes" (freesound 495390)
+  Body falls: Vrymaa (freesound 810885), freesound 181177
+  Pain grunts: freesound 464486, 547209, 416839, 347337
+  Footsteps: Kenney, "RPG Audio" (kenney.nl) - CC0
+  The licences were taken from the source collection's documentation; please re-check them on freesound.org
+  before any commercial release. Crowd bed, bell and clock tick are synthesized in the browser.
+
+Fonts: "Big Shoulders Display" and "Barlow Semi Condensed" - SIL Open Font License 1.1 (see fonts/*-LICENSE.txt).
+Engine: three.js r128 - MIT License (see vendor/three-LICENSE.txt).
