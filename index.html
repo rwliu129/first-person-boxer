@@ -5166,7 +5166,7 @@ function renderTrain(){
   diffSeg($('#t-diff'),setup.sparDiff,v=>{setup.sparDiff=v;saveSetup();});
   seg($('#t-dmg'),[[true,'On'],[false,'Off']],setup.sparDmg,v=>{setup.sparDmg=v;saveSetup();});
 }
-function saveProfile(){ store.set('to.profile',profile); rebuildPreview(); }
+function saveProfile(){ store.set('to.profile',profile); rebuildPreview(); if(typeof netLookSync==='function') netLookSync(); }   // (online: your opponent gets the change)
 function swatches(el,list,cur,on){ el.innerHTML=''; list.forEach(it=>{ const b=document.createElement('button'); b.type='button'; b.style.background=it.c; b.title=it.n+(it.dis?' · '+it.how:''); b.setAttribute('aria-label',it.n+(it.dis?' (locked: '+it.how+')':'')); b.setAttribute('aria-pressed',String(it.v===cur)); if(it.dis) b.disabled=true; b.onclick=()=>{on(it.v); swatches(el,list,it.v,on);}; el.appendChild(b); }); }
 function renderCustom(){
   // the boxer name: saved as you type (empty means the default name), at most 18 characters, Enter just closes the keyboard
@@ -5206,7 +5206,7 @@ $('#p-restart').onclick=()=>restart();
 $('#p-settings').onclick=()=>openSettings('s-pause');
 $('#p-quit').onclick=()=>{ if(G.net){ askConfirm('Leave this online match? It counts as a loss, and you stay in the room.','Leave match',()=>{ netSendRaw({t:'quit'}); resume(); }); return; } goMain(); };
 $('#br-go').onclick=()=>nextRound();
-$('#r-again').onclick=()=>{ if(G.net){ netSendRaw({t:'again'}); return; } startMatch(); };
+$('#r-again').onclick=()=>{ if(G.net){ netLookSync(); netSendRaw({t:'again'}); return; } startMatch(); };
 $('#r-menu').onclick=()=>{ if(G.net||NET.code){ netResultsMode(false); netLeave(); return; } goMain(); };
 
 // ================= Settings =================
@@ -5785,7 +5785,7 @@ function netConnect(then){
   NET.ws=ws;
   clearTimeout(NET.wakeT); NET.wakeT=setTimeout(()=>{ if(NET.ws===ws&&ws.readyState===0) netStatus('Waking the server… A free server sleeps when nobody has played for a while; this can take up to a minute.'); },2500);
   ws.onopen=()=>{ if(NET.ws!==ws) return; clearTimeout(NET.wakeT); NET.state='open'; NET.retry=0; NET.until=0;
-    netSendRaw({t:'hello',v:1,tok:netTok(),name:netName(),look:playerLook(),dev:touchMode()?'touch':'pc'});
+    netSendRaw({t:'hello',v:1,tok:netTok(),name:netName(),look:playerLook(),dev:touchMode()?'touch':'pc'}); NET.lookSent=null;
     netPing(); clearInterval(NET.pingIv); NET.pingIv=setInterval(netPing,2000);
     if(NET.code&&!NET.left) netSendRaw({t:'rejoin',code:NET.code});
     else netStatus('');
@@ -5860,9 +5860,15 @@ function netOpen(){ AU.init(); const n=$('#on-name'); n.value=store.get('fpb.net
   $('#on-srv').value=store.get('fpb.server','')||''; netStatus(netServer()?'':'No server set yet. Open Server below and enter your server’s address.');
   if(!netServer()) $('#on-srvBox').open=true;
   show('s-online'); }
-function netCreate(){ store.set('fpb.netName',netName()); NET.left=true; NET.code=null; NET.until=0; netConnect(()=>{ netSendRaw({t:'name',name:netName()}); NET.left=false; netSendRaw({t:'create'}); }); }
+// your boxer's look reaches the server when you connect; if you change it afterwards (between rooms, in the lobby, before
+// a rematch) the server would keep the old one and your opponent would see it. So the current look is sent again once
+// you're in a room, when you save a change, and when you press Ready or Play again: only when it differs from the last
+// one sent (the server already accepts a look with a name update)
+function netLookSync(force){ if(!NET.ws||NET.ws.readyState!==1||!NET.code&&!force) return; const l=playerLook(), k=JSON.stringify(l);
+  if(!force&&k===NET.lookSent) return; NET.lookSent=k; netSendRaw({t:'name',name:netName(),look:l}); }
+function netCreate(){ store.set('fpb.netName',netName()); NET.left=true; NET.code=null; NET.until=0; netConnect(()=>{ netSendRaw({t:'name',name:netName()}); NET.left=false; netSendRaw({t:'create'}); netLookSync(true); }); }
 function netJoin(code){ code=String(code||'').toUpperCase().replace(/[^A-Z0-9]/g,''); if(code.length!==6){ netStatus('Room codes are 6 letters and numbers.','bad'); return; }
-  store.set('fpb.netName',netName()); NET.left=true; NET.code=null; NET.until=0; netStatus('Joining '+code+'…'); netConnect(()=>{ NET.left=false; netSendRaw({t:'join',code}); }); }
+  store.set('fpb.netName',netName()); NET.left=true; NET.code=null; NET.until=0; netStatus('Joining '+code+'…'); netConnect(()=>{ NET.left=false; netSendRaw({t:'join',code}); netLookSync(true); }); }
 function netLeave(){ netSendRaw({t:'leave'}); NET.left=true; NET.code=null; NET.room=null; try{ sessionStorage.removeItem('fpb.netRoom'); }catch(_){} netExitMatch(); show('s-online'); netStatus('You left the room.'); }
 const RULES_UI=[['lb-rounds','rounds',[1,3,4,6,8,10,12].map(n=>[n,String(n)])],['lb-len','len',[[60,'1:00'],[120,'2:00'],[180,'3:00']]],
   ['lb-dmg','dmg',[[.5,'×0.5'],[.75,'×0.75'],[1,'×1'],[1.25,'×1.25'],[1.5,'×1.5'],[2,'×2']]],
@@ -6114,7 +6120,7 @@ $('#on-name').addEventListener('change',()=>{ store.set('fpb.netName',netName())
 $('#on-srv').addEventListener('change',()=>{ const v=$('#on-srv').value.trim(); store.set('fpb.server',v); if(NET.ws){ try{ NET.ws.close(); }catch(_){} NET.ws=null; } netStatus(v?'Server saved.':'Server cleared.'); });
 $('#lb-copy').onclick=e=>netCopy(NET.code||'',e.currentTarget);
 $('#lb-link').onclick=e=>netCopy(netInvite(),e.currentTarget);
-$('#lb-ready').onclick=()=>{ const me=NET.room&&NET.room.players[NET.slot]; netSendRaw({t:'ready',v:!(me&&me.ready)}); };
+$('#lb-ready').onclick=()=>{ const me=NET.room&&NET.room.players[NET.slot]; netLookSync(); netSendRaw({t:'ready',v:!(me&&me.ready)}); };
 $('#lb-approve').onclick=()=>netSendRaw({t:'approve'});
 $('#lb-start').onclick=()=>netSendRaw({t:'start'});
 $('#lb-leave').onclick=()=>netLeave();
